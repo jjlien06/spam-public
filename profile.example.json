@@ -1,0 +1,16 @@
+{
+  "facts": {"education": [], "experience": [], "projects": []},
+  "preferences": {"locations": [], "role_categories": [], "graduation_date": null},
+  "mailbox": {"provider": "gmail", "email": null},
+  "documents": {"Resume": null, "Attach resume": null},
+  "answers": {
+    "First Name": {"value": null, "aliases": ["Given name", "Legal first name"]},
+    "Last Name": {"value": null, "aliases": ["Surname", "Family name", "Legal last name"]},
+    "Email": {"value": null, "aliases": ["Email address", "Your email"]},
+    "Phone": {"value": null, "aliases": ["Phone number", "Mobile phone"]},
+    "LinkedIn": {"value": null, "aliases": ["LinkedIn profile", "LinkedIn URL"]},
+    "GitHub": {"value": null, "aliases": ["GitHub URL"]},
+    "Will you require sponsorship?": {"value": null, "aliases": []},
+    "Are you authorized to work in the United States?": {"value": null, "aliases": []}
+  }
+}

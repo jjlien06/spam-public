@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SPAM · Log</title>
+<style>
+:root { color-scheme: light; --ink:#183b36; --muted:#526a64; --line:#d8e3db; --paper:#f3f6f0; --accent:#236e58; }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--paper); color:var(--ink); font:16px/1.5 system-ui,sans-serif; }
+header, main { max-width:1120px; margin:auto; padding:28px; }
+header { padding-top:40px; display:flex; align-items:center; justify-content:space-between; gap:20px; }
+.brand { font-size:12px; letter-spacing:.16em; font-weight:750; }
+h1 { margin:8px 0; font-size:clamp(30px,5vw,46px); letter-spacing:-.04em; line-height:1.15; }
+h2 { margin:0 0 12px; font-size:21px; }
+p { margin:8px 0; } .muted, .meta { color:var(--muted); } .meta { font-size:13px; }
+button, select { font:inherit; }
+button { cursor:pointer; border:1px solid var(--line); border-radius:8px; padding:10px 15px; background:white; color:var(--ink); }
+button:hover { border-color:var(--accent); background:#eaf2ed; }
+button:focus-visible, select:focus-visible { outline:3px solid #72b49c; outline-offset:2px; }
+.toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:24px; }
+.count { margin-right:auto; font-weight:650; }
+select { border:1px solid #b9cdc3; border-radius:7px; background:#fbfcfa; color:var(--ink); padding:9px 10px; }
+.panel { border:1px solid var(--line); border-radius:14px; padding:24px; background:white; margin-bottom:24px; }
+.notice { padding:12px 16px; border-radius:8px; background:#e0eee6; margin:0 0 20px; }
+.error { background:#fff0e9; color:#822f18; }
+[hidden] { display:none !important; }
+.table-wrap { overflow:auto; }
+table { border-collapse:collapse; width:100%; font-size:14px; text-align:left; }
+th, td { padding:12px 10px; border-bottom:1px solid var(--line); vertical-align:top; min-width:120px; overflow-wrap:anywhere; }
+th { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+tr.row { cursor:pointer; }
+tr.row:hover { background:#eaf2ed; }
+.status { display:inline-block; padding:3px 8px; border-radius:5px; background:#edf3ee; font-size:12px; white-space:nowrap; }
+.empty { padding:48px 20px; text-align:center; }
+pre { white-space:pre-wrap; overflow-wrap:anywhere; background:#fbfcfa; border:1px solid var(--line); border-radius:8px; padding:14px; font-size:13px; max-height:360px; overflow:auto; }
+footer { color:var(--muted); font-size:13px; margin:28px 0; }
+@media(max-width:600px) {
+  header,main { padding:20px; } header { align-items:flex-start; } .panel { padding:18px; } header .meta { display:none; }
+  table,tbody,tr,td { display:block; width:100%; } thead { display:none; }
+  tr.row { border-bottom:1px solid var(--line); padding:8px 0; }
+  td { min-width:0; border:0; padding:7px 0; }
+  td::before { content:attr(data-label); display:block; color:var(--muted); font-size:12px; font-weight:650; margin-bottom:3px; }
+}
+</style>
+</head>
+<body>
+<header><div><div class="brand">SPAM / LOCAL WORKBENCH</div><h1>Log</h1><p class="muted">Every status change, newest first.</p></div><span class="meta">Read-only on this Mac</span></header>
+<main>
+  <div id="message" role="status" aria-live="polite" hidden></div>
+  <div class="toolbar">
+    <span id="count" class="count">Loading log…</span>
+    <select id="status-filter" aria-label="Filter by status"><option value="">All statuses</option></select>
+    <select id="company-filter" aria-label="Filter by company"><option value="">All companies</option></select>
+    <button id="refresh">Refresh</button>
+  </div>
+  <section id="detail" class="panel" hidden aria-labelledby="detail-title">
+    <h2 id="detail-title"></h2><p id="detail-meta" class="meta"></p>
+    <div id="detail-log" hidden><h3>Run log</h3><pre id="detail-log-text"></pre></div>
+    <div id="detail-review" hidden><h3>Review snapshot</h3><pre id="detail-review-text"></pre></div>
+    <div id="detail-report" hidden><h3>Final report</h3><pre id="detail-report-text"></pre></div>
+    <p id="detail-empty" class="muted" hidden>No local run files for this job.</p>
+    <button id="detail-close">Close</button>
+  </section>
+  <div class="panel">
+    <div class="table-wrap"><table><thead><tr><th>Time</th><th>Company / role</th><th>Status</th><th>Note</th></tr></thead><tbody id="rows"></tbody></table></div>
+    <div id="empty" class="empty" hidden><h2>No log entries yet</h2><p class="muted">Status changes appear here once a batch runs.</p></div>
+  </div>
+  <footer>Read-only. Filling, submitting, and answer edits happen elsewhere (Answer Deck, batch).</footer>
+</main>
+<script nonce="__NONCE__">
+'use strict';
+const el = id => document.getElementById(id);
+function element(tag, text, cls) { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (cls) node.className = cls; return node; }
+function message(text, error=false) { el('message').textContent=text; el('message').className='notice'+(error?' error':''); el('message').hidden=false; }
+async function api(path) {
+  const response = await fetch(path, {cache:'no-store'});
+  const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Request failed'); return data;
+}
+function populate(select, values, placeholder) {
+  const current = select.value;
+  select.replaceChildren(element('option', placeholder));
+  select.firstChild.value = '';
+  for (const value of values) { const o = element('option', value); o.value = value; select.append(o); }
+  select.value = values.includes(current) ? current : '';
+}
+async function load() {
+  const params = new URLSearchParams();
+  if (el('status-filter').value) params.set('status', el('status-filter').value);
+  if (el('company-filter').value) params.set('company', el('company-filter').value);
+  try {
+    const data = await api('/api/log?' + params.toString());
+    el('rows').replaceChildren();
+    el('count').textContent = `${data.rows.length} ${data.rows.length === 1 ? 'entry' : 'entries'}`;
+    el('empty').hidden = data.rows.length > 0;
+    for (const row of data.rows) {
+      const tr = element('tr', undefined, 'row'); tr.tabIndex = 0;
+      const time = element('td', row.at); time.dataset.label = 'Time';
+      const who = element('td'); who.dataset.label = 'Company / role';
+      who.append(element('div', row.company), element('div', row.role, 'meta'));
+      const status = element('td'); status.dataset.label = 'Status';
+      status.append(element('span', (row.old_status || '—') + ' → ' + row.new_status, 'status'));
+      const note = element('td', row.note || '', 'meta'); note.dataset.label = 'Note';
+      tr.append(time, who, status, note);
+      tr.addEventListener('click', () => showDetail(row.job_id));
+      tr.addEventListener('keydown', e => { if (e.key === 'Enter') showDetail(row.job_id); });
+      el('rows').append(tr);
+    }
+    if (!el('status-filter').dataset.filled) {
+      populate(el('status-filter'), [...new Set(data.rows.map(r => r.new_status))].sort(), 'All statuses');
+      populate(el('company-filter'), [...new Set(data.rows.map(r => r.company))].sort(), 'All companies');
+      if (data.rows.length) { el('status-filter').dataset.filled = '1'; el('company-filter').dataset.filled = '1'; }
+    }
+  } catch (error) { message(error.message, true); el('count').textContent = 'Could not load the log'; }
+}
+async function showDetail(jobId) {
+  try {
+    const job = await api('/api/job?id=' + encodeURIComponent(jobId));
+    el('detail-title').textContent = job.company + ' · ' + job.role;
+    el('detail-meta').textContent = `${job.platform} · ${job.status} · ${job.id}` + (job.url ? ' · ' + job.url : '');
+    for (const [key, field] of [['log', 'detail-log'], ['review', 'detail-review']]) {
+      const has = key in job;
+      el(field).hidden = !has;
+      if (has) el(field + '-text').textContent = job[key];
+    }
+    const hasReport = 'report' in job;
+    el('detail-report').hidden = !hasReport;
+    if (hasReport) el('detail-report-text').textContent = JSON.stringify(job.report, null, 2);
+    el('detail-empty').hidden = ('log' in job) || ('review' in job) || hasReport;
+    el('detail').hidden = false;
+    el('detail').scrollIntoView({behavior: 'smooth', block: 'start'});
+  } catch (error) { message(error.message, true); }
+}
+el('refresh').addEventListener('click', load);
+el('status-filter').addEventListener('change', load);
+el('company-filter').addEventListener('change', load);
+el('detail-close').addEventListener('click', () => { el('detail').hidden = true; });
+load();
+</script>
+</body>
+</html>

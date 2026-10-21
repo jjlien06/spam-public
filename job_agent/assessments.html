@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SPAM Assessments</title>
+<style>
+:root {
+  --bg: #f5f6f4; --panel: #ffffff; --ink: #1c211d; --muted: #66706a; --line: #dde2dd; --lane: #eceeeb;
+  --accent: #1f6f4a; --accent-ink: #ffffff; --bad: #a3322b; --bad-bg: #f8e3e1; --warn: #8a5a00; --warn-bg: #fbefd7;
+  --ok: #1f6f4a; --ok-bg: #e1f0e7; --chip: #eef1ee;
+  --k-coding: #2f5fa7; --k-game: #8a3fa0; --k-video: #b0452d; --k-interview: #1f6f4a; --k-take: #7a6a12; --k-other: #66706a;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #111412; --panel: #181c19; --ink: #e6ebe7; --muted: #95a09a; --line: #2a302c; --lane: #141815;
+    --accent: #4fb784; --accent-ink: #0d1a13; --bad: #ef7d74; --bad-bg: #3a1f1c; --warn: #e0a24a; --warn-bg: #36291a;
+    --ok: #4fb784; --ok-bg: #16291e; --chip: #1f2521;
+    --k-coding: #7fa6e6; --k-game: #cf8ae0; --k-video: #ee9179; --k-interview: #6fcf9c; --k-take: #d8c35c; --k-other: #95a09a;
+    color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 -apple-system, "SF Pro Text", "Segoe UI", sans-serif; }
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 2; }
+header h1 { font-size: 15px; margin: 0; letter-spacing: .02em; }
+header .spacer { flex: 1; }
+a { color: var(--accent); }
+button, select, input { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+button { cursor: pointer; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+button.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.muted { color: var(--muted); font-size: 12px; }
+.filters { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 16px 0; }
+.filters button { font-size: 12px; padding: 4px 10px; border-radius: 999px; }
+main { padding: 12px 16px 40px; }
+.board { display: grid; grid-template-columns: repeat(var(--lanes, 4), minmax(240px, 1fr)); gap: 12px; align-items: start; overflow-x: auto; }
+.lane { background: var(--lane); border: 1px solid var(--line); border-radius: 12px; padding: 10px; min-height: 120px; }
+.lane.drop { outline: 2px dashed var(--accent); outline-offset: -4px; }
+.lane h2 { display: flex; align-items: center; gap: 6px; font-size: 12px; margin: 2px 2px 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.lane h2 b { color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 0 7px; font-size: 11px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--kind, var(--k-other)); border-radius: 10px; padding: 9px 10px; margin-bottom: 8px; cursor: grab; }
+.card:active { cursor: grabbing; }
+.card.dragging { opacity: .45; }
+.card .co { font-weight: 650; }
+.card .ti { color: var(--muted); font-size: 12.5px; margin: 1px 0 7px; overflow-wrap: anywhere; }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.chip { font-size: 11px; border-radius: 999px; padding: 1px 8px; background: var(--chip); color: var(--muted); white-space: nowrap; }
+.chip.kind { color: var(--kind); font-weight: 600; }
+.chip.due-late { background: var(--bad-bg); color: var(--bad); font-weight: 650; }
+.chip.due-soon { background: var(--warn-bg); color: var(--warn); font-weight: 650; }
+.chip.due-ok { background: var(--ok-bg); color: var(--ok); }
+.card .links { display: flex; gap: 10px; margin-top: 8px; font-size: 12px; }
+.card .links a { text-decoration: none; font-weight: 600; }
+.card .note { font-size: 12px; margin-top: 6px; color: var(--ink); background: var(--chip); border-radius: 6px; padding: 4px 6px; }
+.card .move { display: none; margin-top: 8px; }
+.empty { color: var(--muted); font-size: 12px; padding: 8px 2px; }
+table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); cursor: pointer; user-select: none; white-space: nowrap; }
+th.sorted::after { content: " ▾"; }
+th.sorted.asc::after { content: " ▴"; }
+td select, td input { padding: 3px 6px; font-size: 12px; }
+td.title { max-width: 360px; overflow-wrap: anywhere; }
+.tablewrap { overflow-x: auto; }
+dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); padding: 16px; width: min(420px, 92vw); }
+dialog form { display: grid; gap: 8px; }
+dialog label { display: grid; gap: 3px; font-size: 12px; color: var(--muted); }
+dialog .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
+@media (max-width: 700px) {
+  .board { grid-template-columns: 1fr; overflow-x: visible; }
+  .card { cursor: default; }
+  .card .move { display: block; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>Assessments</h1>
+  <span class="muted" id="summary"></span>
+  <span class="spacer"></span>
+  <button id="view-board" class="on">Board</button>
+  <button id="view-table">Table</button>
+  <button id="add">Add</button>
+  <button class="primary" id="scan">Scan Gmail</button>
+  <a href="/" class="muted">Console</a>
+</header>
+<div class="filters" id="filters"></div>
+<main id="main"></main>
+
+<dialog id="dlg">
+  <form method="dialog" id="addform">
+    <strong>Add an assessment</strong>
+    <label>Company <input name="company" required></label>
+    <label>What <input name="title" required placeholder="e.g. HireVue video interview"></label>
+    <label>Type <select name="kind"><option>Coding</option><option>Game</option><option>Video</option><option>Interview</option><option>Take-home</option><option>Screening</option><option>Assessment</option></select></label>
+    <label>Due <input name="due" type="date"></label>
+    <label>Link <input name="link" type="url" placeholder="https://"></label>
+    <div class="row"><button value="cancel" formnovalidate>Cancel</button><button class="primary" value="ok">Add</button></div>
+  </form>
+</dialog>
+
+<script>
+const LANES = [['todo', 'To do'], ['in_progress', 'In progress'], ['done', 'Done'], ['expired', 'Expired']];
+const KINDS = ['Coding', 'Game', 'Video', 'Interview', 'Take-home', 'Screening', 'Assessment'];
+const KIND_VAR = {Coding: '--k-coding', Game: '--k-game', Video: '--k-video', Interview: '--k-interview', 'Take-home': '--k-take'};
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+let cards = [], view = 'board', kinds = new Set(), sort = {key: 'due', asc: true}, showSkipped = false;
+try { const saved = JSON.parse(localStorage.getItem('spam-assessments') || '{}'); view = saved.view || view; kinds = new Set(saved.kinds || []); } catch {}
+const remember = () => { try { localStorage.setItem('spam-assessments', JSON.stringify({view, kinds: [...kinds]})); } catch {} };
+
+async function post(path, body) {
+  return fetch(path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body || {})}).then(r => r.json());
+}
+
+function dueChip(card) {
+  if (!card.due) return '<span class="chip">no due date</span>';
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const days = Math.round((new Date(card.due + 'T00:00:00') - today) / 86400000);
+  const open = card.status === 'todo' || card.status === 'in_progress';
+  const label = days < 0 ? `due ${card.due} (${-days}d ago)` : days === 0 ? 'due today' : days === 1 ? 'due tomorrow' : `due in ${days}d · ${card.due.slice(5)}`;
+  const cls = !open ? '' : days < 0 ? 'due-late' : days <= 2 ? 'due-soon' : 'due-ok';
+  return `<span class="chip ${cls}">${label}</span>`;
+}
+
+function shown() {
+  return cards.filter(c => (showSkipped || c.status !== 'skipped') && (!kinds.size || kinds.has(c.kind || 'Assessment')));
+}
+
+function renderFilters() {
+  const present = KINDS.filter(k => cards.some(c => (c.kind || 'Assessment') === k));
+  $('filters').innerHTML = present.map(k => `<button data-kind="${k}" class="${kinds.has(k) ? 'on' : ''}">${k} · ${cards.filter(c => (c.kind || 'Assessment') === k && c.status !== 'skipped').length}</button>`).join('')
+    + `<button data-skip class="${showSkipped ? 'on' : ''}">Skipped · ${cards.filter(c => c.status === 'skipped').length}</button>`;
+  $('filters').querySelectorAll('[data-kind]').forEach(b => b.onclick = () => { kinds.has(b.dataset.kind) ? kinds.delete(b.dataset.kind) : kinds.add(b.dataset.kind); remember(); render(); });
+  $('filters').querySelector('[data-skip]').onclick = () => { showSkipped = !showSkipped; render(); };
+}
+
+function cardHtml(c) {
+  const kind = c.kind || 'Assessment';
+  return `<div class="card" draggable="true" data-key="${esc(c.key)}" style="--kind: var(${KIND_VAR[kind] || '--k-other'})">
+    <div class="co">${esc(c.company)}</div>
+    <div class="ti">${esc(c.title)}</div>
+    <div class="chips"><span class="chip kind">${esc(kind)}</span>${c.platform ? `<span class="chip">${esc(c.platform)}</span>` : ''}${dueChip(c)}</div>
+    ${c.note ? `<div class="note">${esc(c.note)}</div>` : ''}
+    <div class="links">${c.link ? `<a href="${esc(c.link)}" target="_blank" rel="noopener">Open test ↗</a>` : ''}${c.email_url ? `<a href="${esc(c.email_url)}" target="_blank" rel="noopener">Email ↗</a>` : ''}<a href="#" data-note>Note</a></div>
+    <select class="move" data-status>${[...LANES, ['skipped', 'Skipped']].map(([s, l]) => `<option value="${s}" ${s === c.status ? 'selected' : ''}>${l}</option>`).join('')}</select>
+  </div>`;
+}
+
+function renderBoard() {
+  const list = shown();
+  const lanes = showSkipped ? [...LANES, ['skipped', 'Skipped']] : LANES;
+  $('main').innerHTML = `<div class="board" style="--lanes: ${lanes.length}">` + lanes.map(([s, label]) => {
+    const here = list.filter(c => c.status === s);
+    return `<section class="lane" data-lane="${s}"><h2>${label} <b>${here.length}</b></h2>${here.map(cardHtml).join('') || '<div class="empty">Nothing here</div>'}</section>`;
+  }).join('') + '</div>';
+  document.querySelectorAll('.card').forEach(el => {
+    el.addEventListener('dragstart', e => { el.classList.add('dragging'); e.dataTransfer.setData('text/plain', el.dataset.key); });
+    el.addEventListener('dragend', () => el.classList.remove('dragging'));
+  });
+  document.querySelectorAll('.lane').forEach(lane => {
+    lane.addEventListener('dragover', e => { e.preventDefault(); lane.classList.add('drop'); });
+    lane.addEventListener('dragleave', () => lane.classList.remove('drop'));
+    lane.addEventListener('drop', e => { e.preventDefault(); lane.classList.remove('drop'); move(e.dataTransfer.getData('text/plain'), lane.dataset.lane); });
+  });
+  bindCardActions();
+}
+
+function renderTable() {
+  const cols = [['company', 'Company'], ['title', 'What'], ['kind', 'Type'], ['platform', 'Platform'], ['due', 'Due'], ['status', 'Status'], ['received', 'Received'], ['note', 'Note']];
+  const list = shown().slice().sort((a, b) => {
+    const x = a[sort.key] || (sort.key === 'due' ? '9999' : ''), y = b[sort.key] || (sort.key === 'due' ? '9999' : '');
+    return (x < y ? -1 : x > y ? 1 : 0) * (sort.asc ? 1 : -1);
+  });
+  $('main').innerHTML = `<div class="tablewrap"><table><thead><tr>${cols.map(([k, l]) => `<th data-sort="${k}" class="${sort.key === k ? 'sorted' + (sort.asc ? ' asc' : '') : ''}">${l}</th>`).join('')}<th>Links</th></tr></thead><tbody>`
+    + list.map(c => `<tr data-key="${esc(c.key)}">
+      <td><b>${esc(c.company)}</b></td><td class="title">${esc(c.title)}</td><td>${esc(c.kind || '')}</td><td>${esc(c.platform || '')}</td>
+      <td><input type="date" data-due value="${esc(c.due || '')}"></td>
+      <td><select data-status>${[...LANES, ['skipped', 'Skipped']].map(([s, l]) => `<option value="${s}" ${s === c.status ? 'selected' : ''}>${l}</option>`).join('')}</select></td>
+      <td class="muted" style="white-space: nowrap">${esc((c.received || '').slice(0, 10))}</td>
+      <td><input data-notefield value="${esc(c.note || '')}" placeholder="—"></td>
+      <td>${c.link ? `<a href="${esc(c.link)}" target="_blank" rel="noopener">Test</a> ` : ''}${c.email_url ? `<a href="${esc(c.email_url)}" target="_blank" rel="noopener">Email</a>` : ''}</td></tr>`).join('')
+    + `</tbody></table></div>`;
+  document.querySelectorAll('th[data-sort]').forEach(th => th.onclick = () => { sort = {key: th.dataset.sort, asc: sort.key === th.dataset.sort ? !sort.asc : true}; renderTable(); });
+  document.querySelectorAll('tr[data-key]').forEach(tr => {
+    const key = tr.dataset.key;
+    tr.querySelector('[data-due]').onchange = e => update(key, {due: e.target.value});
+    tr.querySelector('[data-notefield]').onchange = e => update(key, {note: e.target.value});
+  });
+  bindCardActions();
+}
+
+function bindCardActions() {
+  document.querySelectorAll('[data-status]').forEach(sel => sel.onchange = () => move(sel.closest('[data-key]').dataset.key, sel.value));
+  document.querySelectorAll('[data-note]').forEach(a => a.onclick = e => {
+    e.preventDefault();
+    const key = a.closest('[data-key]').dataset.key, card = cards.find(c => c.key === key);
+    const note = prompt('Note for this assessment', card.note || '');
+    if (note !== null) update(key, {note});
+  });
+}
+
+async function move(key, status) {
+  const card = cards.find(c => c.key === key);
+  if (!card || card.status === status) return;
+  card.status = status; render();
+  await update(key, {status});
+}
+
+async function update(key, fields) {
+  await post('/api/assessments/update', {id: key, ...fields});
+  load();
+}
+
+function render() {
+  const open = cards.filter(c => c.status === 'todo' || c.status === 'in_progress');
+  const soon = open.filter(c => c.due && (new Date(c.due + 'T00:00:00') - Date.now()) / 86400000 <= 2).length;
+  $('summary').textContent = `${open.length} open${soon ? ` · ${soon} due within 2 days` : ''}`;
+  $('view-board').classList.toggle('on', view === 'board');
+  $('view-table').classList.toggle('on', view === 'table');
+  renderFilters();
+  view === 'table' ? renderTable() : renderBoard();
+}
+
+async function load() {
+  const s = await fetch('/api/assessments').then(r => r.json()).catch(() => null);
+  if (!s) return;
+  cards = s.cards || [];
+  const scan = s.scan || {};
+  $('scan').disabled = !!scan.running;
+  $('scan').textContent = scan.running ? 'Scanning…' : 'Scan Gmail';
+  $('scan').title = scan.last ? `Last scan ${scan.last}: ${scan.summary}` : 'Find assessments in Gmail';
+  if (!document.querySelector('select:focus, input:focus')) render();
+}
+
+$('view-board').onclick = () => { view = 'board'; remember(); render(); };
+$('view-table').onclick = () => { view = 'table'; remember(); render(); };
+$('scan').onclick = async () => { await post('/api/assessments/scan', {days: 45}); load(); };
+$('add').onclick = () => { $('addform').reset(); $('dlg').showModal(); };
+$('dlg').addEventListener('close', async () => {
+  if ($('dlg').returnValue !== 'ok') return;
+  const f = new FormData($('addform'));
+  await post('/api/assessments/add', Object.fromEntries(f.entries()));
+  load();
+});
+load();
+setInterval(load, 8000);
+</script>
+</body>
+</html>

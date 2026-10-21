@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SPAM Setup</title>
+<style>
+:root { --bg:#f5f6f4; --panel:#fff; --ink:#1c211d; --muted:#66706a; --line:#dde2dd; --accent:#1f6f4a; --accent-ink:#fff;
+  --bad:#a3322b; --good:#1f6f4a; color-scheme: light; }
+@media (prefers-color-scheme: dark) { :root { --bg:#111412; --panel:#181c19; --ink:#e6ebe7; --muted:#95a09a; --line:#2a302c;
+  --accent:#4fb784; --accent-ink:#0d1a13; --bad:#ef7d74; --good:#4fb784; color-scheme: dark; } }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.5 -apple-system,"SF Pro Text","Segoe UI",sans-serif; }
+main { max-width: 820px; margin: 0 auto; padding: 24px 16px 80px; }
+h1 { font-size: 22px; margin: 0 0 4px; } h2 { font-size: 16px; margin: 0 0 8px; display:flex; gap:8px; align-items:center; }
+.muted { color: var(--muted); } .bad { color: var(--bad); } .good { color: var(--good); }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin: 14px 0; }
+label.fact { display: grid; grid-template-columns: minmax(140px, 260px) 1fr; gap: 10px; align-items: center; padding: 5px 0;
+  border-bottom: 1px solid var(--line); }
+@media (max-width: 560px) { label.fact { grid-template-columns: 1fr; } }
+input, select, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+  padding: 6px 8px; width: 100%; }
+input[type=checkbox] { width: auto; }
+button { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  padding: 6px 14px; cursor: pointer; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+.tag { font-size: 12px; border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
+.msg { margin-top: 8px; min-height: 1.4em; }
+code { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 1px 5px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Set up SPAM</h1>
+  <p class="muted">Your saved profile lives on this Mac in <code>me/</code>. AI-assisted resume reading can send resume text to your selected provider. Review every proposed fact before saving; live form filling sends answers to employers.
+    Your AI can also do all of this with you: open Claude Code or Codex in this folder and say <b>set me up</b>.</p>
+
+  <section><h2>1. This Mac</h2><div id="checks"></div>
+    <div class="row"><span>AI that drafts from your resume:</span><select id="provider" style="width:auto"></select></div></section>
+
+  <section><h2>2. Resume</h2>
+    <p class="muted">Full path to your resume PDF. Your AI reads it and pre-fills the fields below; you check each group.</p>
+    <div class="row"><input id="resume" placeholder="/Users/you/Documents/Resume.pdf" style="flex:1"><button class="primary" id="draft">Read with AI</button></div>
+    <div class="msg" id="draft-msg"></div></section>
+
+  <div id="groups"></div>
+
+  <section><h2>Targeting</h2>
+    <div id="categories"></div>
+    <label class="fact"><span>US locations only</span><input type="checkbox" id="us_only"></label>
+    <label class="fact"><span>Most applications per company</span><input type="number" id="company_cap" min="1" value="4"></label>
+    <label class="fact"><span>Companies to never apply to (comma separated)</span><input id="exclude"></label>
+    <div class="row"><button class="primary" id="save-targeting">Save targeting</button></div><div class="msg" id="targeting-msg"></div></section>
+
+  <section><h2>Hiring-site login <span class="tag" id="account-tag"></span></h2>
+    <p class="muted">Workday and similar sites need an account. SPAM signs in or creates one with this email and password.
+      Use a password you don't use anywhere important. It's saved only in <code>me/accounts.json</code>.</p>
+    <label class="fact"><span>Email</span><input id="acct-email" type="email"></label>
+    <label class="fact"><span>Password</span><input id="acct-pass" type="password" autocomplete="new-password"></label>
+    <div class="row"><button class="primary" id="save-account">Save login</button></div><div class="msg" id="account-msg"></div></section>
+
+  <section><h2>Gmail (optional)</h2>
+    <p class="muted">Lets SPAM enter emailed security codes, open account-verification links, and log confirmations.</p>
+    <ul>
+      <li><b>Claude Code users:</b> connect Gmail at claude.ai → Settings → Connectors. SPAM reads it through your Claude login.</li>
+      <li><b>Everyone (and the only way for Codex users):</b> create a Google app password (Google Account → Security →
+        2-Step Verification → App passwords), then run <code>.venv/bin/job-agent gmail-login</code> in Terminal.</li>
+    </ul></section>
+
+  <section><h2>Done?</h2><p>Start the console: <code>.venv/bin/job-agent chat</code> → <a href="http://127.0.0.1:8770/">127.0.0.1:8770</a>.
+    <span id="missing" class="muted"></span></p></section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const post = (url, body) => fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then(r => r.json());
+let S = null, draft = {}, notes = {};
+
+function input(f) {
+  const v = draft[f.key] ?? f.value;
+  const id = 'f-' + f.key;
+  if (f.type === 'bool') {
+    const opts = [['', '—'], ['true', 'Yes'], ['false', 'No']].concat(f.declinable ? [['decline', 'Prefer not to say']] : []);
+    return `<select id="${id}">${opts.map(([k, t]) => `<option value="${k}" ${String(v) === k ? 'selected' : ''}>${t}</option>`).join('')}</select>`;
+  }
+  if (f.type === 'enum') {
+    const opts = [''].concat(f.choices).concat(f.declinable ? ['decline'] : []);
+    return `<select id="${id}">${opts.map(k => `<option value="${esc(k)}" ${v === k ? 'selected' : ''}>${k === 'decline' ? 'Prefer not to say' : esc(k || '—')}</option>`).join('')}</select>`;
+  }
+  const shown = Array.isArray(v) ? v.join(', ') : (v ?? '');
+  return `<input id="${id}" value="${esc(shown)}" placeholder="${f.type === 'date' ? (f.key === 'start_date' ? 'YYYY-MM-DD' : 'YYYY-MM') : ''}">`;
+}
+
+function read(f) {
+  const raw = $('f-' + f.key).value.trim();
+  if (raw === '') return undefined;
+  if (raw === 'decline') return 'decline';
+  if (f.type === 'bool') return raw === 'true';
+  if (f.type === 'number') return Number(raw);
+  if (f.type === 'list') return raw.split(',').map(s => s.trim()).filter(Boolean);
+  return raw;
+}
+
+function render() {
+  $('checks').innerHTML = S.checks.map(c => `<div>${c.ok ? '<span class="good">✓</span>' : '<span class="bad">✗</span>'} ${esc(c.name)}${c.ok ? '' : ` — <code>${esc(c.fix)}</code>`}</div>`).join('');
+  $('provider').innerHTML = (S.providers.length ? S.providers : ['none installed']).map(p => `<option ${p === S.provider ? 'selected' : ''}>${esc(p)}</option>`).join('');
+  if (S.resume && !$('resume').value) $('resume').value = S.resume;
+  $('groups').innerHTML = S.groups.map((g, i) => `<section><h2>${i + 3}. ${esc(g.title)} <span class="tag">${g.facts.filter(f => f.confirmed).length}/${g.facts.length} confirmed</span></h2>
+    ${g.facts.map(f => `<label class="fact"><span>${esc(f.ask)} ${f.confirmed ? '<span class="good">✓</span>' : ''}</span>${input(f)}</label>`).join('')}
+    <div class="row"><button class="primary" data-group="${g.group}">Confirm ${esc(g.title.toLowerCase())}</button></div><div class="msg" id="msg-${g.group}">${notes[g.group] || ''}</div></section>`).join('');
+  document.querySelectorAll('button[data-group]').forEach(b => b.onclick = async () => {
+    const g = S.groups.find(x => x.group === b.dataset.group), values = {};
+    for (const f of g.facts) { const v = read(f); if (v !== undefined) values[f.key] = v; }
+    const r = await post('/api/confirm', {values});
+    notes[g.group] = r.error ? `<span class="bad">${esc(r.error)}</span>` : `<span class="good">Saved ${r.saved.length} fact(s).</span>`;
+    $('msg-' + g.group).innerHTML = notes[g.group];
+    if (!r.error) load();
+  });
+  const t = S.targeting || {};
+  $('categories').innerHTML = S.categories.map(c => `<label class="fact"><span>${esc(c)}</span><input type="checkbox" data-cat="${esc(c)}" ${(t.categories || []).includes(c) ? 'checked' : ''}></label>`).join('');
+  $('us_only').checked = t.us_only !== false; $('company_cap').value = t.company_cap || 4; $('exclude').value = (t.exclude_companies || []).join(', ');
+  $('account-tag').textContent = S.has_account ? 'saved' : 'not set';
+  $('missing').textContent = S.missing.length ? `${S.missing.length} fact(s) still unconfirmed — SPAM will stop and ask when a form needs one.` : 'All facts confirmed.';
+}
+
+async function load() { S = await fetch('/api/state').then(r => r.json()); render(); }
+$('provider').onchange = () => post('/api/provider', {provider: $('provider').value});
+$('draft').onclick = async () => {
+  $('draft-msg').textContent = 'Your AI is reading the resume (about a minute)…';
+  const r = await post('/api/draft', {resume: $('resume').value.trim()});
+  if (r.error) { $('draft-msg').innerHTML = `<span class="bad">${esc(r.error)}</span>`; return; }
+  draft = r.draft; $('draft-msg').textContent = `Pre-filled ${Object.keys(draft).length} field(s). Check each group and press Confirm.`;
+  await load();
+};
+$('save-targeting').onclick = async () => {
+  const r = await post('/api/targeting', {targeting: {categories: [...document.querySelectorAll('[data-cat]')].filter(b => b.checked).map(b => b.dataset.cat),
+    us_only: $('us_only').checked, company_cap: Number($('company_cap').value), exclude_companies: $('exclude').value.split(',').map(s => s.trim()).filter(Boolean)}});
+  $('targeting-msg').innerHTML = r.error ? `<span class="bad">${esc(r.error)}</span>` : '<span class="good">Saved.</span>';
+};
+$('save-account').onclick = async () => {
+  const r = await post('/api/account', {email: $('acct-email').value.trim(), password: $('acct-pass').value});
+  $('account-msg').innerHTML = r.error ? `<span class="bad">${esc(r.error)}</span>` : '<span class="good">Saved.</span>';
+  $('acct-pass').value = ''; if (!r.error) load();
+};
+load();
+</script>
+</body>
+</html>

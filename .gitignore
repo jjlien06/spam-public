@@ -1,0 +1,37 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.egg-info/
+state/
+profile.json
+accounts.json
+.env
+
+# One person's data (profile, accounts, state, private extensions)
+me/
+.venv
+
+# Environment variants, credentials, local records, and generated outputs
+.env.*
+!.env.example
+.venv*/
+venv/
+*.pem
+*.key
+*.p12
+*.pfx
+*.sqlite
+*.sqlite3
+*.db
+*.log
+*.har
+*.pdf
+*.csv
+*.xlsx
+.DS_Store
+build/
+dist/
+.coverage
+htmlcov/
+playwright-report/
+test-results/

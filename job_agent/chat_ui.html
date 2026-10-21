@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SPAM Console</title>
+<style>
+:root {
+  --bg: #f5f7f5; --panel: #ffffff; --ink: #1c211d; --muted: #66706a; --line: #dbe3dc;
+  --accent: #1f6f4a; --accent-ink: #ffffff; --tool: #eef2ef; --warn: #9a5b00; --bad: #a3322b; --me: #e3efe8;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #101411; --panel: #1a201b; --ink: #e6ebe7; --muted: #a2afa5; --line: #303a32;
+    --accent: #4fb784; --accent-ink: #0d1a13; --tool: #1f2521; --warn: #e0a24a; --bad: #ef7d74; --me: #1d2b23; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.45 -apple-system, "SF Pro Text", "Segoe UI", sans-serif; }
+.app { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr); height: 100%; }
+.chat { display: flex; flex-direction: column; border-right: 1px solid var(--line); min-width: 0; }
+header { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+header h1 { font-size: 15px; margin: 0; letter-spacing: .02em; }
+header .spacer { flex: 1; }
+select, button { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 7px 11px; }
+button { cursor: pointer; }
+button:hover:not(:disabled), select:hover { border-color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+button:disabled { opacity: .5; }
+#log { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.msg { max-width: 92%; padding: 10px 12px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); white-space: pre-wrap; overflow-wrap: anywhere; }
+.msg.me { align-self: flex-end; background: var(--me); }
+.msg .who { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 4px; }
+.tool { font: 12px/1.4 ui-monospace, "SF Mono", Menlo, monospace; background: var(--tool); color: var(--muted); padding: 6px 10px; border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.err { color: var(--bad); }
+form { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); }
+textarea { flex: 1; resize: none; min-height: 44px; max-height: 160px; font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.side { overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+.dashboard-tabs { position: sticky; top: 0; z-index: 1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 8px 0; background: var(--bg); }
+.dashboard-tabs button { padding: 9px 6px; white-space: nowrap; }
+.dashboard-tabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+.dashboard-panel { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.dashboard-panel[hidden] { display: none; }
+.tab-count { display: inline-block; min-width: 19px; padding: 0 4px; margin-left: 3px; border-radius: 10px; background: var(--tool); color: var(--ink); font-size: 11px; font-variant-numeric: tabular-nums; }
+.dashboard-tabs button[aria-selected="true"] .tab-count { background: rgba(255,255,255,.22); color: var(--accent-ink); }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
+.stat b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+section h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin: 0 0 8px; display: flex; align-items: center; gap: 8px; }
+section h2 .spacer { flex: 1; }
+.section-intro { color: var(--muted); font-size: 12px; margin: 0 0 12px; }
+.approval-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+.approval-actions .spacer { flex: 1; }
+.approval-card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; margin-bottom: 8px; }
+.approval-card:has(input:checked) { border-color: var(--accent); }
+.approval-main { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.approval-main input { margin: 4px 0 0; accent-color: var(--accent); }
+.approval-copy { display: grid; min-width: 0; gap: 2px; }
+.approval-copy strong { font-size: 13px; }
+.approval-role { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.approval-meta { display: flex; align-items: center; gap: 8px; margin: 8px 0 0 24px; }
+.approval-meta a { margin-left: auto; color: var(--accent); font-size: 12px; font-weight: 600; text-decoration: none; }
+.approval-meta a:hover { text-decoration: underline; }
+.row { display: flex; gap: 8px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.row a.open { color: var(--accent); text-decoration: none; font-weight: 600; white-space: nowrap; }
+.row a.open:hover { text-decoration: underline; }
+.row .co { font-weight: 600; white-space: nowrap; }
+.row .ro { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.needs { font-size: 12px; color: var(--warn); }
+.tag { font-size: 11px; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.empty { color: var(--muted); font-size: 13px; }
+.fit-filters { display:flex; gap:6px; flex-wrap:wrap; margin:0 0 10px; }
+.fit-filters button { padding:4px 10px; font-size:12px; border-radius:999px; }
+.fit-filters button[aria-pressed="true"] { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+.fit-group { font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); margin:14px 0 6px; }
+.fit-card { display:grid; grid-template-columns:52px minmax(0,1fr); gap:12px; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:8px; }
+.fit-card:hover { border-color:var(--accent); }
+.fit-score { display:grid; place-items:center; height:52px; border-radius:10px; font-size:19px; font-weight:700; font-variant-numeric:tabular-nums; }
+.fit-score small { display:block; font-size:9px; font-weight:600; opacity:.75; margin-top:-4px; }
+.fit-top { background:#1f6f4a; color:#fff; } .fit-ok { background:#d9a521; color:#1c1500; } .fit-low { background:var(--tool); color:var(--muted); }
+.fit-head { display:flex; gap:8px; align-items:baseline; min-width:0; }
+.fit-head strong { font-size:14px; white-space:nowrap; }
+.fit-head .ro { color:var(--muted); font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+.fit-verdict { font-size:12.5px; margin:5px 0 7px; color:var(--ink); display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+.fit-meta { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.fit-meta a { color:var(--accent); font-size:12px; font-weight:600; text-decoration:none; }
+.fit-meta a:hover { text-decoration:underline; }
+.fit-meta .warn { border-color:var(--warn); color:var(--warn); }
+.muted { color: var(--muted); font-size: 12px; }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 8px; }
+.bar input[type=number] { width: 56px; font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 5px 6px; }
+.assessment-board { display:grid; grid-template-columns:minmax(0,1fr); gap:10px; }
+.assessment-lane { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:8px; min-width:0; }
+.assessment-lane summary { cursor:pointer; padding:3px 2px; font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+.assessment-lane summary:hover { color:var(--ink); }
+.assessment-items { padding:4px 2px 0; }
+.assessment-card { border-top:1px solid var(--line); padding:10px 2px; }
+.assessment-card:first-of-type { border-top:0; }
+.assessment-card .title { font-weight:600; overflow-wrap:anywhere; }
+.assessment-card .meta { color:var(--muted); font-size:11px; margin:2px 0 5px; }
+.assessment-card select { max-width:100%; padding:3px 5px; font-size:11px; }
+@media (max-width: 800px) { .app { grid-template-columns: 1fr; grid-template-rows: 44% 56%; } .chat { border-right: 0; border-bottom: 1px solid var(--line); } .stats { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="chat">
+    <header>
+      <h1>SPAM Console</h1>
+      <select id="provider" title="Which agent answers">
+        <option value="claude">Claude Code</option>
+        <option value="codex">ChatGPT (Codex)</option>
+      </select>
+      <select id="model" title="Model"><option value="default">default model</option></select>
+      <div class="spacer"></div>
+      <button id="reset" title="Start a fresh conversation with this agent">New chat</button>
+    </header>
+    <div id="log">
+      <div class="msg"><div class="who">SPAM</div>Ask the agent to fill more jobs, answer the stuck questions, or explain a failure. It runs SPAM itself; the dashboard updates as it works. Submitting stays with you: tick jobs under "Waiting for your yes" and press Approve. Ashby jobs can't be submitted automatically: Approve fills them and leaves the window open for you to press Submit.</div>
+    </div>
+    <form id="send">
+      <textarea id="text" placeholder="e.g. fill the next 10 SWE jobs at 6 parallel" rows="1"></textarea>
+      <button class="primary" id="go">Send</button>
+    </form>
+  </div>
+  <div class="side" id="dashboard">
+    <div class="stats" id="stats"></div>
+    <div class="dashboard-tabs" role="tablist" aria-label="Dashboard sections">
+      <button id="tab-approvals" type="button" role="tab" aria-controls="approvals-panel" aria-selected="true">Approvals <span class="tab-count" id="approval-count">0</span></button>
+      <button id="tab-assessments" type="button" role="tab" aria-controls="assessments-panel" aria-selected="false">Assessments <span class="tab-count" id="assessment-count">0</span></button>
+      <button id="tab-ranked" type="button" role="tab" aria-controls="ranked-panel" aria-selected="false">Ranked <span class="tab-count" id="ranked-count">0</span></button>
+      <button id="tab-jobs" type="button" role="tab" aria-controls="jobs-panel" aria-selected="false">Jobs</button>
+    </div>
+    <div id="approvals-panel" class="dashboard-panel" role="tabpanel" aria-labelledby="tab-approvals">
+      <section>
+        <h2>Waiting for your yes</h2>
+        <p class="section-intro">Open a job to review its answers. Tick the applications you want to send.</p>
+        <div class="approval-actions">
+          <button id="select-all" type="button">Select all ready</button>
+          <button id="clear-selection" type="button">Clear</button>
+          <span class="spacer"></span>
+          <button class="primary" id="approve" type="button" disabled>Approve selected</button>
+        </div>
+        <div id="review"></div>
+        <div id="hand-wrap" hidden><h2>Press Submit yourself <span class="spacer"></span><a class="open" href="/hand-submit" target="_blank">One at a time ↗</a></h2><div class="muted">Ashby blocks automated submits, so SPAM filled these and left each window open. They count as applied once the confirmation email arrives.</div><div id="hand"></div></div>
+      </section>
+    </div>
+    <div id="assessments-panel" class="dashboard-panel" role="tabpanel" aria-labelledby="tab-assessments" hidden>
+      <section>
+        <h2>Assessments <span class="spacer"></span><a class="open" href="/assessments" target="_blank">Open board ↗</a> <button id="assessment-scan">Scan Gmail</button></h2>
+        <div class="muted" id="assessment-scanned">not scanned yet</div>
+        <div class="assessment-board" id="assessments"></div>
+      </section>
+    </div>
+    <div id="ranked-panel" class="dashboard-panel" role="tabpanel" aria-labelledby="tab-ranked" hidden>
+      <section>
+        <h2>Queued jobs ranked by fit <span class="spacer"></span><span class="muted" id="ranked-summary"></span></h2>
+        <p class="section-intro">career-ops scores each posting 1–5 against your resume. 4.0+ is worth applying; jobs under the cutoff are skipped by Fill.</p>
+        <div class="fit-filters" id="fit-filters">
+          <button data-min="4" aria-pressed="false">4.0+</button>
+          <button data-min="3.5" aria-pressed="true">3.5+</button>
+          <button data-min="0" aria-pressed="false">All</button>
+        </div>
+        <div id="ranked"></div>
+      </section>
+    </div>
+    <div id="jobs-panel" class="dashboard-panel" role="tabpanel" aria-labelledby="tab-jobs" hidden>
+      <section class="controls">
+      <h2>Run</h2>
+      <div class="bar">
+        <button id="pull">Pull new jobs</button>
+        <span class="muted" id="pulled">never pulled</span>
+      </div>
+      <div class="bar">
+        <button id="mail" title="Enter security codes, open account-verification links, record confirmation emails">Check Gmail</button>
+        <span class="muted" id="mailed">checks automatically</span>
+      </div>
+      <div class="bar">
+        <button class="primary" id="fill">Fill next</button>
+        <input id="count" type="number" min="1" max="60" value="20" title="How many jobs"> jobs,
+        <input id="parallel" type="number" min="1" max="8" value="6" title="At once"> at once
+        <select id="mode" title="A private extension's mode" hidden><option value="">normal jobs</option></select>
+      </div>
+      <div class="muted" id="batchstate"></div>
+      </section>
+      <section><h2>Running now</h2><div id="running"></div></section>
+      <section><h2>Stuck (needs an answer or fix)</h2><div id="stuck"></div></section>
+      <section><h2>intern-list.com <span class="spacer"></span><a class="open" href="https://www.intern-list.com/" target="_blank">Site ↗</a></h2>
+        <p class="muted" id="il-summary"></p><div id="internlist"></div></section>
+      <section><h2>Latest activity</h2><div id="recent"></div></section>
+    </div>
+  </div>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const log = $('log');
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'})[c]);
+let busy = false;
+const selected = new Set();
+let currentReview = [];
+const renderSignatures = new Map();
+const expandedAssessmentLanes = new Set(['todo', 'in_progress']);
+let models = {claude: ['default'], codex: ['default']};
+function changed(key, value) {
+  const signature = JSON.stringify(value);
+  if (renderSignatures.get(key) === signature) return false;
+  renderSignatures.set(key, signature);
+  return true;
+}
+function syncSelection() {
+  $('review').querySelectorAll('input[type=checkbox]').forEach(box => { box.checked = selected.has(box.dataset.id); });
+  $('approve').disabled = !selected.size;
+  $('approve').textContent = selected.size ? `Approve selected (${selected.size})` : 'Approve selected';
+  $('clear-selection').disabled = !selected.size;
+}
+const tabNames = ['approvals', 'assessments', 'ranked', 'jobs'];
+let fitMin = 3.5, fitRows = [], fitCutoff = 3;
+function fitClass(x) { return x >= 4 ? 'fit-top' : x >= 3.5 ? 'fit-ok' : 'fit-low'; }
+function renderRanked() {
+  const shown = fitRows.filter(r => r.score >= fitMin);
+  const groups = [['Worth applying · 4.0+', r => r.score >= 4], ['Decent · 3.5–3.9', r => r.score >= 3.5 && r.score < 4],
+                  [`Weak · ${fitCutoff}–3.4`, r => r.score >= fitCutoff && r.score < 3.5], ['Skipped by Fill · under ' + fitCutoff, r => r.score < fitCutoff]];
+  let html = '';
+  for (const [title, test] of groups) {
+    const rows = shown.filter(test);
+    if (!rows.length) continue;
+    html += `<div class="fit-group">${esc(title)} · ${rows.length}</div>` + rows.map(r => `
+      <div class="fit-card"><div class="fit-score ${fitClass(r.score)}"><div>${r.score.toFixed(1)}<small>/ 5</small></div></div>
+      <div style="min-width:0"><div class="fit-head"><strong>${esc(r.company)}</strong><span class="ro" title="${esc(r.role)}">${esc(r.role)}</span></div>
+      <div class="fit-verdict">${esc(r.verdict || '')}</div>
+      <div class="fit-meta"><span class="tag">${esc(r.platform)}</span>${r.legitimacy && !/high/i.test(r.legitimacy) ? `<span class="tag warn">${esc(r.legitimacy)}</span>` : ''}
+      <a href="/fit/${esc(r.id)}" target="_blank">Full report ↗</a><a href="${esc(r.url)}" target="_blank" rel="noreferrer">Posting ↗</a></div></div></div>`).join('');
+  }
+  $('ranked').innerHTML = html || '<div class="empty">No scored jobs at this level yet. Run: job-agent score --count 15</div>';
+  $('ranked-count').textContent = fitRows.filter(r => r.score >= 4).length;
+  $('ranked-summary').textContent = `${fitRows.length} scored · ${fitRows.filter(r => r.score >= 4).length} at 4.0+`;
+}
+async function loadRanked() {
+  try { const d = await fetch('/api/fit').then(r => r.json()); fitRows = d.jobs || []; fitCutoff = d.cutoff ?? 3; } catch { return; }
+  renderRanked();
+}
+document.querySelectorAll('#fit-filters button').forEach(b => b.addEventListener('click', () => {
+  fitMin = Number(b.dataset.min);
+  document.querySelectorAll('#fit-filters button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  renderRanked();
+}));
+loadRanked(); setInterval(loadRanked, 30000);
+function showTab(name, updateHash = true) {
+  if (!tabNames.includes(name)) name = 'approvals';
+  for (const tab of tabNames) {
+    const active = tab === name;
+    $('tab-' + tab).setAttribute('aria-selected', String(active));
+    $(tab + '-panel').hidden = !active;
+  }
+  $('dashboard').scrollTop = 0;
+  if (updateHash) history.replaceState(null, '', '#' + name);
+}
+for (const tab of tabNames) $('tab-' + tab).addEventListener('click', () => showTab(tab));
+window.addEventListener('hashchange', () => showTab(location.hash.slice(1), false));
+showTab(location.hash.slice(1), false);
+function fillModels() {
+  const list = models[$('provider').value] || ['default'];
+  const keep = $('model').value;
+  $('model').innerHTML = list.map(m => `<option value="${esc(m)}">${m === 'default' ? 'default model' : esc(m)}</option>`).join('');
+  if (list.includes(keep)) $('model').value = keep;
+}
+$('provider').addEventListener('change', fillModels);
+
+function add(cls, who, text) {
+  const div = document.createElement('div');
+  div.className = cls;
+  if (who) { const w = document.createElement('div'); w.className = 'who'; w.textContent = who; div.appendChild(w); }
+  const t = document.createElement('span'); t.textContent = text; div.appendChild(t);
+  log.appendChild(div); log.scrollTop = log.scrollHeight;
+  return t;
+}
+
+async function send(message) {
+  const provider = $('provider').value;
+  const name = provider === 'codex' ? 'ChatGPT' : 'Claude Code';
+  add('msg me', 'You', message);
+  busy = true; $('go').disabled = true;
+  try {
+    const res = await fetch('/api/chat', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({provider, message, model: $('model').value})});
+    if (!res.ok) { const e = await res.json().catch(() => ({})); add('msg err', name, e.error || res.statusText); return; }
+    const reader = res.body.getReader(); const decoder = new TextDecoder(); let buffer = '';
+    while (true) {
+      const {value, done} = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, {stream: true});
+      let cut;
+      while ((cut = buffer.indexOf('\n\n')) >= 0) {
+        const chunk = buffer.slice(0, cut); buffer = buffer.slice(cut + 2);
+        if (!chunk.startsWith('data: ')) continue;
+        const ev = JSON.parse(chunk.slice(6));
+        if (ev.kind === 'text') add('msg', name, ev.text);
+        else if (ev.kind === 'tool') add('tool', '', ev.text);
+        else if (ev.kind === 'error') add('msg err', name, ev.text);
+        else if (ev.kind === 'done' && ev.text) add('tool', '', 'done · ' + ev.text);
+      }
+    }
+  } catch (e) { add('msg err', name, String(e)); }
+  finally { busy = false; $('go').disabled = false; refresh(); }
+}
+
+$('send').addEventListener('submit', e => {
+  e.preventDefault();
+  const text = $('text').value.trim();
+  if (!text || busy) return;
+  $('text').value = ''; send(text);
+});
+$('text').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('send').requestSubmit(); } });
+async function post(path, body) {
+  return fetch(path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body || {})}).then(r => r.json());
+}
+$('pull').addEventListener('click', async () => {
+  const r = await post('/api/pull');
+  add('tool', '', r.started ? 'pulling new postings from Simplify + speedyapply…' : 'pull already running');
+  refresh();
+});
+$('mail').addEventListener('click', async () => {
+  const r = await post('/api/mail');
+  add('tool', '', r.started ? 'checking Gmail: security codes, account verification links, confirmation emails…' : (r.reason || 'could not start'));
+  refresh();
+});
+$('assessment-scan').addEventListener('click', async () => {
+  const r = await post('/api/assessments/scan', {days: 45});
+  add('tool', '', r.started ? 'scanning Gmail for assessments and deadlines…' : (r.reason || 'could not start assessment scan'));
+  refresh();
+});
+$('fill').addEventListener('click', async () => {
+  const body = {count: +$('count').value || 10, parallel: +$('parallel').value || 6, mode: $('mode').value || null};
+  const r = await post('/api/fill', body);
+  add('tool', '', r.started ? `filling the next ${body.count} ${body.mode ? body.mode + ' ' : ''}jobs, ${body.parallel} at a time (stops at Review)` : (r.reason || 'could not start'));
+  refresh();
+});
+$('reset').addEventListener('click', async () => {
+  await fetch('/api/reset', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({provider: $('provider').value})});
+  add('tool', '', 'new conversation with ' + $('provider').selectedOptions[0].textContent);
+});
+$('approve').addEventListener('click', async () => {
+  const ids = [...selected];
+  if (!ids.length) return;
+  $('approve').disabled = true;
+  const res = await fetch('/api/approve', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ids})}).then(r => r.json());
+  add('tool', '', `approved ${res.started} job(s); submitting now` + (res.log ? ` (${res.log})` : '') + (res.refused ? `. Not submitted: ${res.refused}` : ''));
+  selected.clear(); syncSelection(); refresh();
+});
+$('select-all').addEventListener('click', () => {
+  for (const job of currentReview) if (!job.submitting) selected.add(job.id);
+  syncSelection();
+});
+$('clear-selection').addEventListener('click', () => {
+  selected.clear();
+  syncSelection();
+});
+
+function rows(target, items, render, empty) {
+  $(target).innerHTML = items.length ? items.map(render).join('') : `<div class="empty">${empty}</div>`;
+}
+
+function renderAssessments(cards) {
+  const lanes = [['todo', 'To do'], ['in_progress', 'In progress'], ['done', 'Done'], ['expired', 'Expired']];
+  $('assessments').innerHTML = lanes.map(([status, label]) => {
+    const here = cards.filter(card => card.status === status);
+    const body = here.length ? here.map(card => `<div class="assessment-card">
+      <div class="title">${esc(card.company)} · ${esc(card.title)}</div>
+      <div class="meta">${esc(card.kind || card.platform || 'Assessment')}${card.due ? ` · due ${esc(card.due)}` : ''}</div>
+      <div class="bar">${card.link ? `<a class="open" href="${esc(card.link)}" target="_blank" rel="noopener">Open</a>` : ''}${card.email_url ? `<a class="open" href="${esc(card.email_url)}" target="_blank" rel="noopener">Email</a>` : ''}
+      <select data-assessment-id="${esc(card.key)}">${['todo','in_progress','done','expired','skipped'].map(s => `<option value="${s}" ${s === card.status ? 'selected' : ''}>${s.replace('_',' ')}</option>`).join('')}</select></div>
+      ${card.note ? `<div class="needs">${esc(card.note)}</div>` : ''}</div>`).join('') : '<div class="empty">None</div>';
+    return `<details class="assessment-lane" data-status="${status}" ${expandedAssessmentLanes.has(status) ? 'open' : ''}>
+      <summary>${label} (${here.length})</summary><div class="assessment-items">${body}</div></details>`;
+  }).join('');
+  $('assessments').querySelectorAll('details[data-status]').forEach(lane => lane.addEventListener('toggle', () => {
+    lane.open ? expandedAssessmentLanes.add(lane.dataset.status) : expandedAssessmentLanes.delete(lane.dataset.status);
+  }));
+  $('assessments').querySelectorAll('select[data-assessment-id]').forEach(select => select.addEventListener('change', async () => {
+    await post('/api/assessments/update', {id: select.dataset.assessmentId, status: select.value});
+    refresh();
+  }));
+}
+
+async function refresh() {
+  let s;
+  try { s = await fetch('/api/state').then(r => r.json()); } catch { return; }
+  if (s.models) { const first = !models.claude[1]; models = s.models; if (first) fillModels(); }
+  const modes = s.modes || [];
+  if (modes.length && $('mode').options.length !== modes.length + 1) {
+    $('mode').innerHTML = '<option value="">normal jobs</option>' + modes.map(m => `<option value="${esc(m)}">${esc(m)} jobs</option>`).join('');
+  }
+  $('mode').hidden = !modes.length;
+  const lp = s.last_pull;
+  $('pulled').textContent = s.pulling ? 'pulling now…' : lp ? `last pull ${lp.pulled_at}: +${(lp.simplify_added || 0) + (lp['speedyapply-swe_added'] || 0) + (lp['speedyapply-ai_added'] || 0) + (lp['intern-list-swe_added'] || 0) + (lp['intern-list-ai_added'] || 0)} new (intern-list +${(lp['intern-list-swe_added'] || 0) + (lp['intern-list-ai_added'] || 0)}), ${lp.eligible ?? '?'} eligible` : 'never pulled (auto-pulls hourly)';
+  const m = s.mail || {};
+  $('mailed').textContent = m.running ? 'checking Gmail…' : m.last ? `Gmail ${m.last}: ${m.summary}` : 'checks automatically';
+  $('mail').disabled = !!m.running;
+  const assessment = s.assessment_scan || {};
+  $('assessment-scanned').textContent = assessment.running ? 'scanning now…' : assessment.last ? `last scan ${assessment.last}: ${assessment.summary}` : 'not scanned yet';
+  $('assessment-scan').disabled = !!assessment.running;
+  if (changed('assessments', s.assessments || [])) renderAssessments(s.assessments || []);
+  $('assessment-count').textContent = (s.assessments || []).filter(a => a.status === 'todo').length;
+  $('batchstate').textContent = s.batch ? 'A batch is running.' : '';
+  $('fill').disabled = !!s.batch;
+  const c = s.counts || {};
+  $('stats').innerHTML = [['Applied', s.applied ?? '–'], ['Waiting', c.review || 0], ['Queued', c.queued || 0], ['Stuck', c.needs_input || 0]]
+    .map(([k, v]) => `<div class="stat"><b>${esc(v)}</b><span>${esc(k)}</span></div>`).join('');
+  $('approval-count').textContent = c.review || 0;
+  currentReview = s.review || [];
+  for (const id of [...selected]) if (!currentReview.some(r => r.id === id)) selected.delete(id);
+  for (const r of currentReview) if (r.submitting) selected.delete(r.id);
+  if (changed('review', currentReview)) {
+    rows('review', currentReview, r => `<div class="approval-card"><label class="approval-main">
+        ${r.submitting ? '<span class="tag">submitting…</span>' : `<input type="checkbox" data-id="${esc(r.id)}">`}
+        <span class="approval-copy"><strong>${esc(r.company)}</strong><span class="approval-role">${esc(r.role)}</span></span></label>
+        <div class="approval-meta"><span class="tag">${r.hand || r.platform === 'ashby' ? 'Ashby · you press Submit' : esc(r.platform)}</span><a href="/job/${esc(r.id)}" target="_blank">Review details ↗</a></div></div>`, 'Nothing waiting for approval.');
+    $('review').querySelectorAll('input[type=checkbox]').forEach(box => box.addEventListener('change', () => {
+      box.checked ? selected.add(box.dataset.id) : selected.delete(box.dataset.id);
+      syncSelection();
+    }));
+  }
+  syncSelection();
+  $('hand-wrap').hidden = !(s.hand || []).length;
+  if (changed('hand', s.hand || [])) rows('hand', s.hand || [], r => `<div class="row"><span class="co">${esc(r.company)}</span><span class="ro">${esc(r.role)}</span><a class="open" href="/job/${esc(r.id)}" target="_blank">Open</a></div>`, '');
+  const il = s.internlist || {linked: {}, found: []}, ln = il.linked || {};
+  const applied = ['submitted', 'applied', 'already_applied', 'submit_uncertain'].reduce((n, k) => n + (ln[k] || 0), 0);
+  $('il-summary').textContent = `Linked to the employer's own form: ${Object.values(ln).reduce((a, b) => a + b, 0)} (queued ${ln.queued || 0}, waiting ${ln.review || 0}, stuck ${ln.needs_input || 0}, applied ${applied}). `
+    + `No employer link found for ${il.unlinked || 0}; newest below (apply by hand or dismiss).`;
+  if (changed('internlist', il.found)) {
+    rows('internlist', il.found, r => `<div class="row"><span class="tag">${esc(r.posted || '')}</span><span class="co">${esc(r.company)}</span><span class="ro">${esc(r.role)}${r.salary && r.salary !== 'N/A' ? ' · ' + esc(r.salary) : ''}</span>`
+        + `<a class="open" href="${esc(r.search)}" target="_blank">Find ↗</a>${r.link ? `<a class="open" href="${esc(r.link)}" target="_blank">jobright ↗</a>` : ''}`
+        + `<button data-dismiss="${esc(r.key)}">Dismiss</button></div>`, 'Nothing unlinked.');
+    $('internlist').querySelectorAll('button[data-dismiss]').forEach(b => b.addEventListener('click', async () => {
+      await post('/api/internlist/dismiss', {key: b.dataset.dismiss}); refresh(); }));
+  }
+  if (changed('running', s.running)) rows('running', s.running, r => `<div class="row"><span class="co">${esc(r.company)}</span><span class="ro">${esc(r.role)}</span>${r.submit ? '<span class="tag">submitting</span>' : ''}</div>`, 'Nothing running.');
+  if (changed('stuck', s.stuck)) rows('stuck', s.stuck, r => `<div class="row" style="flex-direction:column;align-items:stretch"><div style="display:flex;gap:8px"><span class="co">${esc(r.company)}</span><span class="ro">${esc(r.role)}</span><a class="open" href="/job/${esc(r.id)}" target="_blank">Open</a></div><div class="needs">${esc(r.needs)}</div></div>`, 'Nothing stuck.');
+  if (changed('recent', s.recent)) rows('recent', s.recent, r => `<div class="row"><span class="tag">${esc((r.at || '').slice(11, 16))}</span><span class="co">${esc(r.company)}</span><span class="ro">${esc(r.role)}</span><span class="tag">${esc(r.status)}</span></div>`, 'No activity yet.');
+}
+refresh();
+setInterval(() => { if (!document.hidden) refresh(); }, 4000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+</script>
+</body>
+</html>

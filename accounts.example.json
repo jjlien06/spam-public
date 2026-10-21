@@ -1,0 +1,6 @@
+{
+  "default": {"email": "you@example.com", "password": "YOUR_DEFAULT_PASSWORD", "create_if_missing": true},
+  "accounts": {
+    "https://example.wd5.myworkdayjobs.com": {"email": "you@example.com", "password": "EXISTING_ACCOUNT_PASSWORD", "exists": true}
+  }
+}

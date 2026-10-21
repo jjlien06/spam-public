@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SPAM · Answer Deck</title>
+<style>
+:root { color-scheme: light; --ink:#183b36; --muted:#526a64; --line:#d8e3db; --paper:#f3f6f0; --accent:#236e58; }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--paper); color:var(--ink); font:16px/1.5 system-ui,sans-serif; }
+header, main { max-width:1120px; margin:auto; padding:28px; }
+header { padding-top:40px; display:flex; align-items:center; justify-content:space-between; gap:20px; }
+.brand { font-size:12px; letter-spacing:.16em; font-weight:750; }
+h1 { margin:8px 0; font-size:clamp(30px,5vw,46px); letter-spacing:-.04em; line-height:1.15; }
+h2 { margin:0 0 12px; font-size:21px; }
+h3 { margin:0 0 16px; font-size:18px; }
+h3, .tag { overflow-wrap:anywhere; max-width:100%; }
+p { margin:8px 0; } .muted, .meta { color:var(--muted); } .meta { font-size:13px; }
+button, input, textarea, select { font:inherit; }
+button { cursor:pointer; border:1px solid var(--line); border-radius:8px; padding:10px 15px; background:white; color:var(--ink); }
+button:hover { border-color:var(--accent); background:#eaf2ed; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline:3px solid #72b49c; outline-offset:2px; }
+button:disabled { opacity:.5; cursor:default; }
+.primary { background:var(--accent); color:white; border-color:var(--accent); }
+.primary:hover { background:#185940; color:white; }
+.toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:24px; }
+.count { margin-right:auto; font-weight:650; }
+.card, .panel { border:1px solid var(--line); border-radius:14px; padding:24px; background:white; }
+.card { margin-bottom:16px; } .panel { margin-bottom:24px; }
+.tag { display:inline-block; padding:3px 8px; margin:0 4px 6px 0; border-radius:5px; background:#edf3ee; font-size:12px; }
+.options { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0; }
+.options button { text-align:left; overflow-wrap:anywhere; }
+label { display:block; margin:12px 0 6px; font-size:14px; font-weight:650; }
+input, textarea, select { border:1px solid #b9cdc3; border-radius:7px; background:#fbfcfa; color:var(--ink); padding:10px; width:100%; }
+textarea { min-height:90px; resize:vertical; }
+.row { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:12px; }
+.row select { width:auto; }
+.current { margin-top:12px; font-size:14px; overflow-wrap:anywhere; }
+.notice { padding:12px 16px; border-radius:8px; background:#e0eee6; margin:0 0 20px; }
+.error { background:#fff0e9; color:#822f18; }
+[hidden] { display:none !important; }
+.preview { border:2px solid var(--accent); scroll-margin-top:20px; }
+.table-wrap { overflow:auto; margin-top:16px; }
+table { border-collapse:collapse; width:100%; font-size:14px; text-align:left; }
+th, td { padding:12px 10px; border-bottom:1px solid var(--line); vertical-align:top; min-width:120px; overflow-wrap:anywhere; }
+th { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+td:first-child { min-width:220px; } .bad { color:#943a20; font-weight:650; }
+details { border-top:1px solid var(--line); padding-top:18px; margin-top:30px; }
+summary { cursor:pointer; font-weight:650; }
+.issue { padding:14px 0; border-bottom:1px solid var(--line); overflow-wrap:anywhere; }
+.empty { padding:48px 20px; text-align:center; }
+footer { color:var(--muted); font-size:13px; margin:28px 0; }
+@media(max-width:600px) {
+  header,main { padding:20px; } header { align-items:flex-start; } .card,.panel { padding:18px; } header .meta { display:none; }
+  table,tbody,tr,td { display:block; width:100%; } thead { display:none; }
+  tr { border-bottom:1px solid var(--line); padding:8px 0; }
+  td,td:first-child { min-width:0; border:0; padding:7px 0; }
+  td::before { content:attr(data-label); display:block; color:var(--muted); font-size:12px; font-weight:650; margin-bottom:3px; }
+}
+</style>
+</head>
+<body>
+<header><div><div class="brand">SPAM / LOCAL WORKBENCH</div><h1>Answer Deck</h1><p class="muted">Your answers, ready for the next run.</p></div><span class="meta">Saved on this Mac</span></header>
+<main>
+  <div id="message" role="status" aria-live="polite" hidden></div>
+  <div class="toolbar"><span id="count" class="count">Loading questions…</span><button id="refresh">Refresh</button><button id="rule-toggle">New choice rule</button></div>
+  <details class="panel"><summary>AI assistant · Luna by default</summary>
+    <p class="muted">Uses your signed-in CLI. Selected saved facts and questions are sent to that provider. Suggestions require review before saving.</p>
+    <label for="agent-provider">Provider</label><select id="agent-provider"><option value="codex">Codex</option><option value="claude">Claude</option></select>
+    <label for="agent-model">Economy model</label><select id="agent-model"><option>gpt-6-luna</option><option>gpt-5.6-luna</option><option>gpt-5.4-mini</option></select>
+    <p id="agent-status" class="meta"></p><div class="row"><button id="agent-connect">Enable selected agent</button><button id="agent-disable">Disable</button><button id="agent-batch">Suggest unanswered answers</button></div>
+    <p class="meta">Up to 3 calls per operation, 20 per day by default. Small prompts and cached results. No larger-model fallback. CLI overhead adds tokens.</p>
+  </details>
+  <section id="suggestions" class="panel" hidden><h2>AI suggestions — review before saving</h2><div id="suggestion-list"></div></section>
+  <section id="rule" class="panel" hidden aria-labelledby="rule-title">
+    <h2 id="rule-title">Answer a family of choice questions</h2>
+    <p class="muted">New rules go at the end. Exact answers and the first matching rule take priority. Preview checks the captured questions and their options.</p>
+    <label for="pattern">Question pattern (regular expression)</label><input id="pattern" placeholder="previously employed" maxlength="300" autocomplete="off">
+    <label for="rule-value">Verified answer</label><input id="rule-value" placeholder="No" autocomplete="off">
+    <label for="exceptions">Stop when the question mentions (one phrase per line)</label><textarea id="exceptions" placeholder="An employer where you have worked"></textarea>
+    <div class="row"><button id="preview-rule" class="primary">Preview rule</button><button id="close-rule">Close</button></div>
+  </section>
+  <section id="preview" class="panel preview" hidden aria-labelledby="preview-title">
+    <h2 id="preview-title">Before you save</h2><p id="preview-message"></p><p id="coverage" class="meta"></p><p id="aliases" class="meta"></p>
+    <div class="table-wrap"><table><thead><tr><th>Question / company</th><th>Current answer</th><th>After saving</th><th>Site choice</th></tr></thead><tbody id="preview-rows"></tbody></table></div>
+    <div class="row"><button id="save" class="primary">Save to profile</button><button id="cancel">Cancel</button></div>
+  </section>
+  <div id="questions"></div>
+  <details id="issues-panel" hidden><summary id="issues-count"></summary><p class="muted">Resolve these in the run report or existing browser window.</p><div id="issues"></div></details>
+  <footer>Save verified answers here, then refill the affected jobs and inspect their review pages. Submission still requires your explicit approval.</footer>
+</main>
+<script nonce="__TOKEN__">
+'use strict';
+const token = '__TOKEN__';
+const el = id => document.getElementById(id);
+let pending = null;
+let previewRevision = 0;
+let agentConfig = null;
+const showValue = value => value === null || value === undefined ? 'No saved answer' : typeof value === 'string' ? value : JSON.stringify(value);
+function element(tag, text, cls) { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (cls) node.className = cls; return node; }
+function message(text, error=false) { el('message').textContent=text; el('message').className='notice'+(error?' error':''); el('message').hidden=false; }
+async function api(path, body) {
+  const response = await fetch(path, body === undefined ? {cache:'no-store'} : {method:'POST', headers:{'Content-Type':'application/json','X-Deck-Token':token}, body:JSON.stringify(body)});
+  const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Request failed'); return data;
+}
+function resetPreview() { previewRevision++; pending=null; el('preview').hidden=true; el('save').disabled=true; }
+async function preview(candidate) {
+  resetPreview();
+  const revision = previewRevision;
+  try {
+    const data=await api('/api/preview',candidate); if(revision!==previewRevision)return; pending=data.preview || null;
+    el('preview-message').textContent=data.message;
+    el('coverage').textContent=`${data.coverage} captured question occurrences checked · ${data.changed} answers would change. Unseen questions are outside this preview.`;
+    el('aliases').textContent=data.affected_aliases.length ? 'Saved labels or aliases affected: '+data.affected_aliases.join(' · ') : '';
+    el('preview-rows').replaceChildren();
+    for (const row of data.rows) {
+      const tr=element('tr'); const question=element('td'); question.append(element('strong',row.question),element('div',row.company+' · '+row.job_id,'meta'));
+      const after=element('td',showValue(row.after)); if(row.note) after.append(element('div',row.note,'meta'));
+      tr.append(question,element('td',showValue(row.before)),after,element('td',row.options.length ? row.selected || (row.after===null?'No selection':'Does not match the options') : 'No options captured',row.compatible?'':'bad'));
+      [...tr.children].forEach((cell,index)=>{cell.dataset.label=['Question / company','Current answer','After saving','Site choice'][index];});
+      el('preview-rows').append(tr);
+    }
+    el('save').disabled=!data.can_save; el('preview').hidden=false; el('preview').scrollIntoView({behavior:'smooth',block:'start'});
+  } catch(error) { message(error.message,true); }
+}
+async function load() {
+  resetPreview();
+  try {
+    const data=await api('/api/deck'); el('questions').replaceChildren();
+    el('count').textContent=`${data.questions.length} ${data.questions.length===1?'question':'questions'} waiting for a refill`;
+    if(!data.questions.length) { const empty=element('div',undefined,'empty'); empty.append(element('h2','No unanswered questions'),element('p','Fill a batch to collect questions here.','muted')); el('questions').append(empty); }
+    data.questions.forEach((question,index)=>{
+      const card=element('section',undefined,'card'); card.append(element('h3',question.question));
+      for(const company of [...new Set(question.observations.map(o=>o.company))]) card.append(element('span',company,'tag'));
+      card.append(element('p','Current saved answer: '+showValue(question.current),'current'));
+      const draft=element('button','Suggest with AI'); draft.addEventListener('click',()=>suggestAnswers([question.question])); card.append(draft);
+      if(question.options.length) {
+        const choices=element('div',undefined,'options');
+        question.options.forEach(option=>{ const button=element('button',option); button.addEventListener('click',()=>preview({kind:'exact',question:question.question,value:option})); choices.append(button); });
+        card.append(choices,element('p','Choose an option to preview the exact answer, then save. Each site’s choices are checked separately.','meta'));
+      } else {
+        const id='answer-'+index; const label=element('label','Verified answer'); label.htmlFor=id;
+        const input=element('textarea'); input.id=id; input.maxLength=12000; input.autocomplete='off'; input.addEventListener('input',resetPreview);
+        const row=element('div',undefined,'row'); const type=element('select'); type.setAttribute('aria-label','Answer type for '+question.question);
+        for(const [value,text] of [['text','Text'],['true','Checkbox: checked'],['false','Checkbox: unchecked']]) {const o=element('option',text);o.value=value;type.append(o);}
+        type.addEventListener('change',()=>{input.disabled=type.value!=='text';resetPreview();});
+        const button=element('button','Preview exact answer'); button.addEventListener('click',()=>preview({kind:'exact',question:question.question,value:type.value==='text'?input.value:type.value==='true'}));
+        row.append(type,button); card.append(label,input,row,element('p','No choices were captured. Use only a verified answer; inspect the site if its control type is unclear.','meta'));
+      }
+      el('questions').append(card);
+    });
+    el('issues-panel').hidden=!data.issues.length; el('issues-count').textContent=`${data.issues.length} other stops need attention`; el('issues').replaceChildren();
+    for(const issue of data.issues) {const node=element('div',undefined,'issue');node.append(element('strong',issue.company+' · '+issue.job_id),element('p',issue.message));el('issues').append(node);}
+  } catch(error) { message(error.message,true); el('count').textContent='Could not load the deck'; }
+}
+async function agentStatus() {
+  try {const data=await api('/api/agent');agentConfig=data.config;el('agent-provider').value=agentConfig.provider;modelOptions();el('agent-model').value=agentConfig.model;
+    el('agent-status').textContent=`${agentConfig.enabled?'Enabled':'Disabled'} · ${agentConfig.model} · ${data.usage.calls} calls today · CLI ${data.installed[agentConfig.provider]?'installed':'not found'}`;
+  } catch(error){message(error.message,true);}
+}
+function modelOptions(){el('agent-model').replaceChildren();for(const name of el('agent-provider').value==='codex'?['gpt-6-luna','gpt-5.6-luna','gpt-5.4-mini']:['haiku','sonnet'])el('agent-model').append(element('option',name));}
+el('agent-provider').addEventListener('change',modelOptions);
+async function configureAgent(enabled){try{await api('/api/agent/configure',{...agentConfig,enabled,provider:el('agent-provider').value,model:el('agent-model').value});await agentStatus();}catch(error){message(error.message,true);}}
+el('agent-connect').addEventListener('click',()=>configureAgent(true));
+el('agent-disable').addEventListener('click',()=>configureAgent(false));
+el('agent-batch').addEventListener('click',()=>suggestAnswers(null));
+let suggesting=false;
+async function suggestAnswers(questions){
+  if(suggesting)return;suggesting=true;message('Preparing compact answer suggestions…');
+  try{const data=await api('/api/agent/suggest',{questions});showSuggestions(data);
+    message(`${data.calls} agent calls. Review suggestions below; no answers have been saved.`);await agentStatus();
+  }catch(error){message(error.message,true);}finally{suggesting=false;}
+}
+function showSuggestions(data){el('suggestion-list').replaceChildren();
+    for(const proposal of data.proposals){const card=element('div',undefined,'card');card.append(element('h3',proposal.question),element('p',showValue(proposal.answer)),element('p',proposal.reason,'muted'));
+      card.append(element('p',`${proposal.model} · ${proposal.cached?'reused result':'new suggestion'}`,'meta'));
+      for(const source of proposal.evidence)card.append(element('p',source.label+': '+showValue(source.value),'meta'));
+      if(proposal.answer!==null){const accept=element('button','Preview this answer','primary');accept.addEventListener('click',()=>preview({kind:'exact',question:proposal.question,value:proposal.answer,profile_revision:proposal.profile_revision}));card.append(accept);}
+      el('suggestion-list').append(card);
+    }el('suggestions').hidden=!data.proposals.length;
+}
+el('refresh').addEventListener('click',load);
+el('rule-toggle').addEventListener('click',()=>{el('rule').hidden=!el('rule').hidden; if(!el('rule').hidden) el('pattern').focus();});
+el('close-rule').addEventListener('click',()=>{el('rule').hidden=true;resetPreview();});
+el('cancel').addEventListener('click',resetPreview);
+el('preview-rule').addEventListener('click',()=>preview({kind:'pattern',match:el('pattern').value,value:el('rule-value').value,unless_mentions:el('exceptions').value.split('\n').map(s=>s.trim()).filter(Boolean)}));
+for(const id of ['pattern','rule-value','exceptions']) el(id).addEventListener('input',resetPreview);
+el('save').addEventListener('click',async()=>{
+  if(!pending)return; el('save').disabled=true;
+  try {const data=await api('/api/save',{preview:pending});message(data.message);await load();} catch(error){message(error.message,true);resetPreview();}
+});
+load();
+agentStatus();
+api('/api/agent/suggestions').then(showSuggestions).catch(error=>message(error.message,true));
+</script>
+</body>
+</html>

@@ -1,0 +1,350 @@
+{
+ "version": 1,
+ "about": "Shared question library: question wording -> core fact + option logic. Never answers, essays, companies or dates. Order matters: the first matching rule wins.",
+ "rules": [
+  {
+   "id": "first-name",
+   "fact": "legal_first_name",
+   "kind": "text",
+   "match": "^(?:legal )?first name$|^given name$|^first$"
+  },
+  {
+   "id": "last-name",
+   "fact": "legal_last_name",
+   "kind": "text",
+   "match": "^(?:legal )?last name$|^family name$|^surname$|^last$"
+  },
+  {
+   "id": "preferred-name",
+   "fact": "preferred_name",
+   "kind": "text",
+   "match": "^preferred (?:first )?name$"
+  },
+  {
+   "id": "email",
+   "fact": "email",
+   "kind": "text",
+   "match": "^e-?mail(?: address)?$|^your email$"
+  },
+  {
+   "id": "phone",
+   "fact": "phone",
+   "kind": "text",
+   "match": "^(?:mobile |cell |primary )?phone(?: number)?$"
+  },
+  {
+   "id": "street",
+   "fact": "street",
+   "kind": "text",
+   "match": "^(?:street )?address(?: line 1)?$|^street$"
+  },
+  {
+   "id": "city",
+   "fact": "city",
+   "kind": "text",
+   "match": "^city$|^town$|^city or town$"
+  },
+  {
+   "id": "state",
+   "fact": "state",
+   "kind": "any",
+   "match": "^state$|^state/province$|^state or province$"
+  },
+  {
+   "id": "zip",
+   "fact": "zip",
+   "kind": "text",
+   "match": "^(?:zip|postal)(?: code)?$|^zip/postal code$"
+  },
+  {
+   "id": "country",
+   "fact": "country",
+   "kind": "any",
+   "match": "^country$|^country of residence$"
+  },
+  {
+   "id": "degree",
+   "fact": "degree",
+   "kind": "any",
+   "match": "^degree$|^degree type$"
+  },
+  {
+   "id": "graduation",
+   "fact": "graduation_date",
+   "kind": "text",
+   "match": "^(?:expected )?graduation date$"
+  },
+  {
+   "id": "sponsorship",
+   "fact": "needs_sponsorship",
+   "kind": "choice",
+   "guard": true,
+   "match": "\\b(?:need|require)\\b[^?]{0,60}\\bsponsor|sponsorship for employment|visa sponsorship|sponsor(?:ship)? (?:now or )?in the future|sponsor or renew an employment-based visa|sponsor an? immigration case",
+   "choose": [
+    {
+     "when": false,
+     "prefer": [
+      "^no\\b(?!.*\\b(?:may|might|will)\\b)",
+      "^no\\b"
+     ]
+    },
+    {
+     "when": true,
+     "prefer": [
+      "^yes\\b"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "work-authorized",
+   "fact": "work_authorized",
+   "kind": "choice",
+   "guard": true,
+   "match": "(?:legally )?authori[sz]ed to work|legal(?:ly)? (?:right|eligib\\w+|permitted|able|qualified) to work|eligible to work in the|can you legally work|unrestricted right to work|valid work permit|legal work authori[sz]ation|lawful authori[sz]ation to work|legally eligible for employment",
+   "unless": [
+    "temporar",
+    "\\bopt\\b",
+    "\\bcpt\\b"
+   ]
+  },
+  {
+   "id": "us-citizen",
+   "fact": "us_citizen",
+   "kind": "choice",
+   "match": "are you a (?:u\\.?s\\.?|united states) citizen|are you a u\\.?s\\.? person"
+  },
+  {
+   "id": "age-18",
+   "fact": "age_18_plus",
+   "kind": "choice",
+   "guard": true,
+   "match": "18 years old \\(or older\\)|18 years (?:or|of age or) older|18 or older|at least 18|over (?:the age of )?18|legal working age",
+   "unless": [
+    "younger than",
+    "under 18",
+    "under the age"
+   ]
+  },
+  {
+   "id": "enrolled",
+   "fact": "enrolled",
+   "kind": "choice",
+   "match": "currently enrolled[^?]{0,60}(?:accredited|college|university|degree|program)|enrolled as a full[- ]time (?:college )?student|active student"
+  },
+  {
+   "id": "relocate",
+   "fact": "willing_to_relocate",
+   "kind": "choice",
+   "match": "\\b(?:willing|able|prepared|open|agree)(?:\\s+\\w+){0,4}\\s+(?:to\\s+)?relocat(?:e|ing|ion)\\b|\\bwould you relocate\\b|relocate on your own|without relocation assistance|relocat\\w* at your own expense"
+  },
+  {
+   "id": "onsite",
+   "fact": "willing_onsite",
+   "kind": "choice",
+   "match": "willing to work (?:on-?site|in[- ]office)|on-site position|hybrid policy|in the office at least \\d+ days|(?:able|willing)\\b[^?]{0,30}\\bcommute\\b|within commutable distance|\\b(?:requires?|required)\\b.{0,60}\\b(?:on-?site|in office|in-office|days (?:a|per) week)\\b.*\\b(?:able|willing|meet)\\b",
+   "choose": [
+    {
+     "when": true,
+     "prefer": [
+      "^yes\\b(?!.*\\b(?:but|relocat|hybrid|remote)\\b)",
+      "^yes\\b"
+     ]
+    },
+    {
+     "when": false,
+     "prefer": [
+      "^no\\b"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "clearance-held",
+   "fact": "has_clearance",
+   "kind": "choice",
+   "match": "(?:hold|have held|currently have|possess)[^?]{0,60}security clearance|do you have a current security clearance|presently have (?:a )?security clearance|active security clearance"
+  },
+  {
+   "id": "clearance-eligible",
+   "fact": "clearance_eligible",
+   "kind": "choice",
+   "match": "eligib\\w+ (?:to obtain|for) (?:a |an )?(?:u\\.?s\\.? )?(?:government )?(?:security )?clearance|^clearance eligibility\\??$"
+  },
+  {
+   "id": "government",
+   "fact": "worked_for_government",
+   "kind": "choice",
+   "match": "employee of any government|(?:federal|state|local) government (?:entity|employment)|u\\.?s\\.? federal government employment|employment history with the u\\.?s\\.? government"
+  },
+  {
+   "id": "military",
+   "fact": "military_service",
+   "kind": "choice",
+   "match": "(?:ever served|currently serving|previously served)[^?]{0,50}(?:military|armed forces)|(?:previous|prior) military experience|national guard or reserves"
+  },
+  {
+   "id": "non-compete",
+   "fact": "non_compete",
+   "kind": "choice",
+   "match": "non-competition|non-compete|non-solicit|agreement that could restrict|agreements? with (?:other|current|former) employers?|commitments or agreements with other employers"
+  },
+  {
+   "id": "conflicts",
+   "fact": "conflicts_of_interest",
+   "kind": "choice",
+   "match": "conflict of interest|family members?[^?]{0,80}(?:employed by|work(?:s|ing)? (?:for|at))|close personal relationship|relatives?[^?]{0,40}(?:employed by|work(?:s|ing)? (?:for|at))|related to (?:anyone|someone|any (?:current )?employee)"
+  },
+  {
+   "id": "criminal",
+   "fact": "criminal_conviction",
+   "kind": "choice",
+   "guard": true,
+   "match": "(?:ever )?been convicted|convicted of (?:a|any) (?:crime|felony|misdemeanor|offense)|plead(?:ed)? guilty|nolo contendere"
+  },
+  {
+   "id": "travel",
+   "fact": "travel_percent",
+   "kind": "text",
+   "match": "percentage of (?:the )?time are you willing to travel|how much travel"
+  },
+  {
+   "id": "gender",
+   "fact": "gender",
+   "kind": "choice",
+   "match": "gender with which you (?:most )?identify|select the appropriate gender|gender do you most closely identify|^gender identity$|provide your gender|indicate your gender|identify your gender|describes your gender|what is your gender|^gender$|^your gender$|select your gender|^sex$"
+  },
+  {
+   "id": "pronouns",
+   "fact": "pronouns",
+   "kind": "choice",
+   "match": "preferred pronouns|^pronouns?$"
+  },
+  {
+   "id": "hispanic",
+   "fact": "hispanic_latino",
+   "kind": "choice",
+   "match": "(?:ethnicity|are you) (?:is )?hispanic or latino|hispanic/latino"
+  },
+  {
+   "id": "race",
+   "fact": "race",
+   "kind": "choice",
+   "match": "^race$|^race/ethnicity$|what is your race|select the race which most accurately describes|please identify your race"
+  },
+  {
+   "id": "veteran",
+   "fact": "veteran",
+   "kind": "choice",
+   "match": "protected veteran|veteran status|veterans? status|^\\s*veteran\\??$",
+   "choose": [
+    {
+     "when": "decline",
+     "prefer": [
+      "decline",
+      "prefer not",
+      "not wish",
+      "don.t wish",
+      "choose not",
+      "not to (?:say|answer|disclose)"
+     ]
+    },
+    {
+     "when": true,
+     "prefer": [
+      "^yes\\b",
+      "^i (?:identify as|am) (?:one or more|a protected)"
+     ]
+    },
+    {
+     "when": false,
+     "prefer": [
+      "^no\\b",
+      "\\bnot a protected veteran\\b",
+      "^i am not\\b"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "disability",
+   "fact": "disability",
+   "kind": "choice",
+   "match": "disability status|do you have a disability|(?:check|select) one of the boxes below",
+   "choose": [
+    {
+     "when": "decline",
+     "prefer": [
+      "decline",
+      "prefer not",
+      "not wish",
+      "don.t wish",
+      "choose not",
+      "not to (?:say|answer|disclose)"
+     ]
+    },
+    {
+     "when": true,
+     "prefer": [
+      "^yes\\b"
+     ]
+    },
+    {
+     "when": false,
+     "prefer": [
+      "^no\\b",
+      "\\bi do not (?:have|want)"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "lgbtq",
+   "fact": "lgbtq",
+   "kind": "choice",
+   "match": "identify as lgbtq|sexual orientation"
+  },
+  {
+   "id": "gpa",
+   "fact": "gpa",
+   "kind": "text",
+   "match": "^gpa\\??$|^overall gpa|^cumulative gpa|what is your (?:cumulative )?gpa"
+  },
+  {
+   "id": "school",
+   "fact": "school",
+   "kind": "text",
+   "match": "^school$|^university$|what university do you (?:currently )?attend|which (?:college|university|school) do you attend"
+  },
+  {
+   "id": "major",
+   "fact": "major",
+   "kind": "text",
+   "match": "^major$|^field of study$|^discipline$|what is your major"
+  },
+  {
+   "id": "linkedin",
+   "fact": "linkedin",
+   "kind": "text",
+   "match": "^linkedin(?: profile)?(?: url| link)?$|\\blinkedin (?:profile )?(?:url|link)\\b"
+  },
+  {
+   "id": "github",
+   "fact": "github",
+   "kind": "text",
+   "match": "^github(?: url| profile)?$"
+  },
+  {
+   "id": "website",
+   "fact": "website",
+   "kind": "text",
+   "match": "^(?:personal )?website$|^portfolio(?: url)?$"
+  },
+  {
+   "id": "hear-about",
+   "fact": "referral_source",
+   "kind": "choice",
+   "match": "how did you (?:first )?(?:hear|learn|find out) (?:about|of)"
+  }
+ ]
+}

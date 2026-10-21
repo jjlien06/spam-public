@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SPAM Hand Submit</title>
+<style>
+:root {
+  --bg: #f5f6f4; --panel: #ffffff; --ink: #1c211d; --muted: #66706a; --line: #dde2dd;
+  --accent: #1f6f4a; --accent-ink: #ffffff; --warn: #8a5a00; --warn-bg: #fbefd7; --ok-bg: #e1f0e7;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #111412; --panel: #181c19; --ink: #e6ebe7; --muted: #95a09a; --line: #2a302c;
+    --accent: #4fb784; --accent-ink: #0d1a13; --warn: #e0a24a; --warn-bg: #36291a; --ok-bg: #16291e; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 -apple-system, "SF Pro Text", "Segoe UI", sans-serif; }
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; }
+header h1 { font-size: 15px; margin: 0; }
+header .spacer { flex: 1; }
+a { color: var(--accent); }
+button { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+main { padding: 12px 16px 40px; max-width: 900px; }
+h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 18px 0 8px; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+.row .who { flex: 1; min-width: 200px; }
+.row .who b { display: block; }
+.row.current { outline: 2px solid var(--accent); }
+.row.waiting { background: var(--ok-bg); }
+.muted { color: var(--muted); font-size: 12px; }
+#msg { font-size: 13px; padding: 8px 12px; border-radius: 8px; background: var(--warn-bg); color: var(--warn); display: none; margin-top: 10px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Hand submit</h1>
+  <span class="muted" id="count"></span>
+  <span class="spacer"></span>
+  <button class="primary" id="next">Show next</button>
+  <a href="/">Console</a>
+</header>
+<main>
+  <p class="muted">These forms are filled and checked. Press <b>Show</b> to bring one window to the front, check it, press the site's
+    Submit, then <b>I submitted</b> here. A job counts as applied once its confirmation email arrives.</p>
+  <div id="msg"></div>
+  <h2>Window open: ready for your Submit</h2><div id="open"></div>
+  <h2>Window closed: apply from the posting</h2><div id="gone"></div>
+  <h2>Submitted: waiting for the email</h2><div id="waiting"></div>
+</main>
+<script>
+let rows = [], current = null;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+function say(text) { const m = document.getElementById("msg"); m.textContent = text; m.style.display = text ? "block" : "none"; }
+async function post(path, id) {
+  const r = await fetch(path, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({id})});
+  const data = await r.json(); say(data.error || data.message || ""); return data;
+}
+function row(r, actions) {
+  return `<div class="row ${r.id === current ? "current" : ""} ${r.user_submitted ? "waiting" : ""}" data-id="${r.id}">
+    <div class="who"><b>${esc(r.company)}</b><span class="muted">${esc(r.role)}</span></div>${actions}</div>`;
+}
+function render() {
+  const open = rows.filter(r => r.target && !r.user_submitted), gone = rows.filter(r => !r.target && !r.user_submitted),
+        waiting = rows.filter(r => r.user_submitted);
+  document.getElementById("count").textContent = `${open.length} open · ${gone.length} closed · ${waiting.length} waiting for email`;
+  document.getElementById("open").innerHTML = open.map(r => row(r,
+    `<button data-act="show">Show</button><button class="primary" data-act="done">I submitted</button>`)).join("") || '<p class="muted">None.</p>';
+  document.getElementById("gone").innerHTML = gone.map(r => row(r,
+    `<a href="${esc(r.url)}" target="_blank" rel="noopener">Open posting</a><button data-act="done">I submitted</button>`)).join("") || '<p class="muted">None.</p>';
+  document.getElementById("waiting").innerHTML = waiting.map(r => row(r, '<span class="muted">waiting for email</span>')).join("") || '<p class="muted">None.</p>';
+}
+async function load() { rows = await (await fetch("/api/hand-submit")).json(); render(); }
+document.body.addEventListener("click", async e => {
+  const b = e.target.closest("button[data-act]"); if (!b) return;
+  const id = b.closest(".row").dataset.id;
+  if (b.dataset.act === "show") { current = id; await post("/api/hand-submit/show", id); render(); }
+  if (b.dataset.act === "done") { await post("/api/hand-submit/done", id); await load(); }
+});
+document.getElementById("next").onclick = async () => {
+  const open = rows.filter(r => r.target && !r.user_submitted);
+  if (!open.length) return say("No open windows left.");
+  const i = Math.max(0, open.findIndex(r => r.id === current) + 1) % open.length;
+  current = open[i].id; await post("/api/hand-submit/show", current); render();
+};
+load(); setInterval(load, 30000);
+</script>
+</body>
+</html>

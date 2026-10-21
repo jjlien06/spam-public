@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "local-job-agent"
+version = "0.1.0a1"
+description = "Local-first, human-supervised job-application assistant"
+readme = "README.md"
+license = "MIT"
+authors = [{name = "Jeremy Lien"}]
+requires-python = ">=3.11"
+dependencies = ["beautifulsoup4>=4.12,<5", "playwright>=1.50,<2", "keyring>=25,<26"]
+
+[project.optional-dependencies]
+mlx = ["laya-mlx"]
+gui = ["PySide6>=6.8,<7"]
+test = ["pytest>=8,<9"]
+
+[project.scripts]
+job-agent = "job_agent.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["job_agent*"]
+
+[tool.setuptools.package-data]
+job_agent = ["*.html"]
